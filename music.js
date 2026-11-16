@@ -52,8 +52,27 @@
   audio.volume=.40;volume.value='.40';
   let stored='';try{stored=localStorage.getItem(URLKEY)||'';}catch{};
   let adminMusic='';try{adminMusic=localStorage.getItem('birthday-admin-music-url')||'';}catch{}
-  const configured=stored||adminMusic||cfg.musicUrl||'assets/birthday_theme.mp3';
+  const configured=stored||(cfg.remoteApi===true?(cfg.musicUrl||'assets/birthday_theme.mp3'):(adminMusic||cfg.musicUrl||'assets/birthday_theme.mp3'));
   if(validUrl(configured))setSource(configured);else display('Chưa cấu hình bài hát.');
+
+  // Public site music must follow server settings, not just the Admin browser's localStorage.
+  // Visitor-selected music (the widget's per-device override) is kept for that visitor.
+  async function loadSharedMusic(){
+    if(cfg.remoteApi!==true||stored)return;
+    try{
+      const response=await fetch('/api/content',{cache:'no-store'});
+      if(!response.ok)return;
+      const data=await response.json();
+      const shared=String(data?.settings?.musicUrl||cfg.musicUrl||'assets/birthday_theme.mp3').trim();
+      if(!validUrl(shared)||explicitlyOff||temporaryUrl||musicSrc.value===shared)return;
+      try{if(localStorage.getItem(URLKEY))return;}catch{}
+      setSource(shared);
+      if(cfg.musicAutoplay!==false&&!document.hidden&&playingVideos.size===0)begin();
+    }catch(error){
+      console.warn('Không thể đọc nhạc chung, đang dùng bài mặc định.',error);
+    }
+  }
+  void loadSharedMusic();
   // The welcome prompt is accessible when autoplay with audible sound gets blocked.
   if(cfg.musicAutoplay!==false){begin().then(ok=>{intro.hidden=ok;});}else intro.hidden=true;
   // Browser autoplay can be denied without a gesture; retry on the first normal interaction.
