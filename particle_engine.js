@@ -13,6 +13,7 @@
   let particles=[],targets={cake:[],heart:[],text:[]},sprites=[],rockets=[],sparks=[],stars=[];
   let density=innerWidth<500?5100:innerWidth<900?8800:11400,stage='cake',automatic=true,paused=reduce.matches||document.hidden,hidden=document.hidden,stageVisible=true,speed=1,twinkle=.65;
   let mouse={x:0,y:0,active:false};
+  let morph=null,finishedFirstScene=false;
 const COLOR_THEMES = [
     {name:'Xanh lam',       rgb:[71,138,215]},
     {name:'Tím lavender',   rgb:[153,117,197]},
@@ -29,7 +30,10 @@ const COLOR_THEMES = [
 ];
   const COLOR_HOLD_SECONDS=1.0, COLOR_TRANSITION_SECONDS=0.5, COLOR_FRAMES=24;
   const FIREWORK_COLORS=[[255,108,176],[105,211,255],[255,199,87],[179,130,255],[122,245,190],[255,146,115]];
+  // Thời gian giữ mỗi hình; không bao gồm thời gian gom và bung hạt.
   const stageDuration={cake:6,heart:6,text:6};
+  // Nửa đầu xoáy thu về tâm, nửa sau xoáy bung ra thành hình tiếp theo.
+  const MORPH_SECONDS=3.4;
   const labels={cake:'Bánh kem 3D · Nến số 25',heart:'Trái tim 3D bằng hạt sáng',text:'Thanh Hằng 2011 bằng hạt sáng'};
   function heartEquation(t){return {x:16*Math.sin(t)**3/17.2,y:-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/17.2};}
   const lerp=(a,b,u)=>a+(b-a)*u;
@@ -168,22 +172,75 @@ const COLOR_THEMES = [
     stars=Array.from({length:Math.min(85,Math.floor(W*H/6200))},()=>({x:rnd(5,W-5),y:rnd(10,H-10),phase:rnd(0,TAU),r:rnd(.3,1.1)}));
     if($('density-value')) $('density-value').textContent=density.toLocaleString('vi-VN');
     if($('density')) $('density').value=density;
+    // Tiếp tục từ vị trí thực khi thay đổi kích thước/mật độ giữa chuyển cảnh.
+    if(morph)beginMorph(morph.to,true);
   }
-  function newStage(s,withScatter=true){
+  function announceStage(s){
+    if($('phase'))$('phase').textContent=labels[s];
+    if(embedded)parent.postMessage({type:'birthday-particle-phase',label:labels[s]},'*');
+    document.querySelectorAll('[data-scene]').forEach(b=>
+      b.setAttribute('aria-pressed',String(b.dataset.scene===(automatic?'all':s))));
+  }
+  function newStage(s){
     stage=s;startScene=clock;
-    particles.forEach((p,i)=>{const t=targets[s][i];p.tx=t.x;p.ty=t.y;p.tz=t.z;p.kind=t.kind;
-      if(withScatter){
-        const swirl=rnd(.40,1.10),a=Math.atan2(p.y,p.x),lift=s==='heart' ? .20 : .13;
-        p.vx+=Math.cos(a+PI/2)*swirl;
-        p.vz+=Math.sin(a+PI/2)*swirl;
-        p.vy+=rnd(-.25,.25)-lift;
-      }
+    particles.forEach((p,i)=>{
+      const t=targets[s][i];
+      p.tx=t.x;p.ty=t.y;p.tz=t.z;p.kind=t.kind;
+      // Không tạo thêm hạt, không thay tọa độ và không tăng vận tốc bất ngờ.
+      p.vx=p.vy=p.vz=0;
     });
-    if($('phase')) $('phase').textContent=labels[s];
-    if(embedded) parent.postMessage({type:'birthday-particle-phase',label:labels[s]},'*');
-    document.querySelectorAll('[data-scene]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scene===(automatic?'all':s))));
+    announceStage(s);
   }
-  function switchMode(s){automatic=s==='all';if($('auto')) $('auto').checked=automatic;newStage(automatic?'cake':s);clock=0;startScene=0;}
+  const smoothstep=u=>u*u*(3-2*u);
+  function beginMorph(to,force=false){
+    if(!targets[to]||(!force&&morph?.to===to))return;
+    if(!force&&!morph&&to===stage)return;
+    morph={to,started:clock,announced:false};
+    particles.forEach(p=>{
+      // Chụp vị trí thực để đường xoắn bắt đầu liền mạch.
+      p.fromX=p.x;p.fromY=p.y;p.fromZ=p.z;
+      p.vx=p.vy=p.vz=0;
+    });
+  }
+  function updateMorph(){
+    if(!morph)return;
+    const m=morph,u=clamp((clock-m.started)/MORPH_SECONDS,0,1);
+    const collapsing=u<.5;
+    const phase=smoothstep(collapsing?u*2:(u-.5)*2);
+    const spin=TAU*1.5*(collapsing?phase:1-phase);
+    const cs=Math.cos(spin),sn=Math.sin(spin);
+    const spread=collapsing?1-phase:phase;
+    const coreRatio=collapsing?phase:1-phase;
+    const destination=targets[m.to];
+    for(let i=0;i<particles.length;i++){
+      const p=particles[i],end=destination[i];
+      // Hạt gom vào một điểm sáng rất nhỏ, nhưng mỗi hạt giữ định danh riêng.
+      const a=p.seed+i*2.3999632297;
+      const radius=.025*Math.sqrt((i+.5)/particles.length);
+      const cx=radius*Math.cos(a),cy=.015*Math.sin(a*1.4),cz=radius*Math.sin(a);
+      const x=collapsing?p.fromX:end.x;
+      const y=collapsing?p.fromY:end.y;
+      const z=collapsing?p.fromZ:end.z;
+      p.x=spread*(x*cs-z*sn)+coreRatio*cx;
+      p.y=spread*y+coreRatio*cy;
+      p.z=spread*(x*sn+z*cs)+coreRatio*cz;
+    }
+    if(u>=.5&&!m.announced){announceStage(m.to);m.announced=true;}
+    if(u>=1){
+      const to=m.to;
+      morph=null;finishedFirstScene=true;
+      // Cuối pha bung, hạt ở đúng đích; hệ lò xo giữ hình ổn định.
+      newStage(to);
+      fireworks();nextRocket=clock+rnd(.8,1.6);
+    }
+  }
+  function switchMode(s){
+    automatic=s==='all';
+    if($('auto'))$('auto').checked=automatic;
+    const to=automatic?'cake':s;
+    if(to===stage&&!morph){startScene=clock;announceStage(stage);}
+    else beginMorph(to,true);
+  }
   function projection(x,y,z,t){
     const sceneBend = stage==='text' ? .28 : stage==='heart' ? 1.18 : .95;
     const yaw=sceneBend*.36*Math.sin(t*.19)+(stage==='text'?.045:.22)+(mouse.active?mouse.x*.24:0);
@@ -265,7 +322,8 @@ const COLOR_THEMES = [
     return u*u*(3-2*u);
   }
   function drawOne(p,t,i,activeSprite,sceneAge,tint){
-    const vis=particleVisibility(p.kind,sceneAge,p.seed);
+    // Không ẩn hạt khi xoáy hoặc sau khi đổi hình.
+    const vis=morph||finishedFirstScene?1:particleVisibility(p.kind,sceneAge,p.seed);
     if(vis<=0)return;
     const pos=projection(p.x,p.y,p.z,t),kind=p.kind;
     const number=kind==='number'||kind==='number-edge';
@@ -281,7 +339,7 @@ const COLOR_THEMES = [
     const alpha=clamp(shimmer*depthLight, .15,1)*vis;
     g.globalAlpha=alpha;
     let sprite=activeSprite;
-    if(number)sprite=digitSprites[tint.index][tint.step];
+    if(number)sprite=digitSprites[tint.index%digitSprites.length][tint.step];
     else if(kind==='flame')sprite=flameSprite;
     g.drawImage(sprite,pos.x-r*1.58,pos.y-r*1.58,r*3.16,r*3.16);
     // Rare star-shaped glints are made from tiny light strokes; never a solid glyph outline.
@@ -347,7 +405,8 @@ const COLOR_THEMES = [
       if($('adaptive')?.checked && measuredFps<23 && density>1100){ slowDuration+=1.5; if(slowDuration>4.5){ density=Math.max(1100,Math.round(density*.82/100)*100); setViewport(); slowDuration=0; } }
       else slowDuration=0;
     }
-    if(automatic && clock-startScene>=stageDuration[stage]){ newStage(stage==='cake'?'heart':stage==='heart'?'text':'cake'); fireworks(); nextRocket=clock+rnd(.8,1.6); }
+    if(!morph&&automatic&&clock-startScene>=stageDuration[stage])beginMorph(stage==='cake'?'heart':stage==='heart'?'text':'cake');
+    if(morph)updateMorph();
     if(clock>nextRocket){ fireworks(); nextRocket=clock+rnd(W<480?1.35:.9,W<480?2.4:1.75); }
     g.clearRect(0,0,W,H); drawAmbient(clock);
     const tint=colorAt(clock), activeSprite=sprites[tint.index][tint.step];
@@ -355,11 +414,11 @@ const COLOR_THEMES = [
       const hex='#'+tint.rgb.map(n=>n.toString(16).padStart(2,'0')).join('');
       if(hex!==lastBroadcastColor){ lastBroadcastColor=hex; parent.postMessage({type:'birthday-particle-palette',color:hex},'*'); }
     }
-    if($('color-mode')) $('color-mode').textContent=tint.holding?`${tint.name} · 3 giây`:`${tint.name} → ${COLOR_THEMES[(tint.index+1)%COLOR_THEMES.length].name}`;
+    if($('color-mode')) $('color-mode').textContent=tint.holding?`${tint.name} · ${COLOR_HOLD_SECONDS} giây`:`${tint.name} → ${COLOR_THEMES[(tint.index+1)%COLOR_THEMES.length].name}`;
     drawRearFireworks(dt,clock,tint);
-    drawStageBase(tint,clock);
+    if(!morph)drawStageBase(tint,clock);
     const sceneAge=clock-startScene;
-    for(let i=0;i<particles.length;i++){ const p=particles[i]; move(p,dt,clock); drawOne(p,clock,i,activeSprite,sceneAge,tint); }
+    for(let i=0;i<particles.length;i++){ const p=particles[i]; if(!morph)move(p,dt,clock); drawOne(p,clock,i,activeSprite,sceneAge,tint); }
     g.globalAlpha=1; g.globalCompositeOperation='source-over';
   }
   function resume(b){ paused=!b; if($('pause')){$('pause').textContent=b?'Ⅱ Tạm dừng':'▶ Tiếp tục';$('pause').setAttribute('aria-pressed',String(!b));} lastFrame=performance.now(); }
@@ -382,7 +441,7 @@ const COLOR_THEMES = [
   window.addEventListener('message',event=>{ if(event.source!==parent||event.data?.type!=='birthday-particle-command') return;
     if(event.data.action==='pause')resume(false); else if(event.data.action==='play')resume(true); else if(event.data.action==='suspend')stageVisible=false; else if(event.data.action==='resume'){ stageVisible=true; lastFrame=performance.now(); }
   });
-  setViewport(); newStage('cake',false); if($('phase')) $('phase').textContent=labels.cake;
-  window.BIRTHDAY_PARTICLE_DEBUG={get count(){return particles.length},get scene(){return stage},get fps(){return measuredFps},get color(){return colorAt(clock)},get frameCount(){return particles.length},get numeralParticleCount(){return targets.cake.filter(p=>p.kind==='number'||p.kind==='number-edge').length},get numberBounds(){const a=targets.cake.filter(p=>p.kind==='number'||p.kind==='number-edge');return {x:[Math.min(...a.map(p=>p.x)),Math.max(...a.map(p=>p.x))],y:[Math.min(...a.map(p=>p.y)),Math.max(...a.map(p=>p.y))]}},get age(){return clock-startScene},get fireworkInfo(){return {rockets:rockets.length,heartSparks:sparks.length,cap:HERO_FIREWORK_MAX(),perBurst:HERO_BURST_COUNT()}},get depthRange(){const a=targets[stage];return [Math.min(...a.map(p=>p.z)),Math.max(...a.map(p=>p.z))]},switchMode,fireworks};
+  setViewport(); newStage('cake');
+  window.BIRTHDAY_PARTICLE_DEBUG={get count(){return particles.length},get scene(){return stage},get fps(){return measuredFps},get color(){return colorAt(clock)},get frameCount(){return particles.length},get numeralParticleCount(){return targets.cake.filter(p=>p.kind==='number'||p.kind==='number-edge').length},get numberBounds(){const a=targets.cake.filter(p=>p.kind==='number'||p.kind==='number-edge');return {x:[Math.min(...a.map(p=>p.x)),Math.max(...a.map(p=>p.x))],y:[Math.min(...a.map(p=>p.y)),Math.max(...a.map(p=>p.y))]}},get age(){return clock-startScene},get morph(){return morph?{to:morph.to,progress:clamp((clock-morph.started)/MORPH_SECONDS,0,1),duration:MORPH_SECONDS}:null},get fireworkInfo(){return {rockets:rockets.length,heartSparks:sparks.length,cap:HERO_FIREWORK_MAX(),perBurst:HERO_BURST_COUNT()}},get depthRange(){const a=targets[stage];return [Math.min(...a.map(p=>p.z)),Math.max(...a.map(p=>p.z))]},switchMode,fireworks};
   requestAnimationFrame(draw);
 })();
