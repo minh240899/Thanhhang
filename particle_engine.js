@@ -27,7 +27,7 @@ const COLOR_THEMES = [
     {name:'Trắng ngọc trai',rgb:[245,235,250]},
     {name:'Hồng rose gold', rgb:[226,157,169]}
 ];
-  const COLOR_HOLD_SECONDS=3.0, COLOR_TRANSITION_SECONDS=1.25, COLOR_FRAMES=24;
+  const COLOR_HOLD_SECONDS=1.0, COLOR_TRANSITION_SECONDS=0.5, COLOR_FRAMES=24;
   const FIREWORK_COLORS=[[255,108,176],[105,211,255],[255,199,87],[179,130,255],[122,245,190],[255,146,115]];
   const stageDuration={cake:5,heart:4,text:3};
   const labels={cake:'Bánh kem 3D · Nến số 25',heart:'Trái tim 3D bằng hạt sáng',text:'Thanh Hằng 2011 bằng hạt sáng'};
