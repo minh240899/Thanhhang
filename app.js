@@ -138,7 +138,7 @@
   async function processMedia(files){const items=[];for(const file of files){const type=isVideo(file)?'video':'image';const url=cloudMode?await uploadCloudMedia(file):type==='video'?await storeLocalVideo(file):await compactPhoto(file);items.push({type,url});}return items;}
   function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3600);}
   function renderCounts(){$('#stat-moments').textContent=String(state.posts.filter(x=>x.approved!==false).length).padStart(2,'0');$('#stat-journeys').textContent=String(state.trips.filter(x=>x.published!==false).length).padStart(2,'0');$('#stat-wishes').textContent=String(state.wishes.filter(x=>x.approved!==false).length).padStart(2,'0');}
-  function renderTrips(){const root=$('#journey-list');root.replaceChildren();state.trips.filter(t=>t.published!==false).sort((a,b)=>(a.sort_order??0)-(b.sort_order??0)).forEach(t=>{const item=document.createElement('article');item.className='journey-card';item.innerHTML=`<img class="journey-cover" loading="lazy" src="${esc(safeImg(t.image_url))}" alt="${esc(t.title)}"><div class="journey-info"><div class="journey-date">${esc(t.label)}${t.date?' · '+esc(shortDate(t.date)):''}</div><h3>${esc(t.title)}</h3>${t.location?`<div class="journey-location">⌖ ${esc(t.location)}</div>`:''}<p>${esc(t.description)}</p>${t.linked_album_id&&state.posts.some(p=>p.id===t.linked_album_id&&p.approved!==false)?`<button class="journey-album-btn" type="button">Xem album chuyến đi ↗</button>`:''}</div>`;if(t.linked_album_id){$('.journey-album-btn',item)?.addEventListener('click',()=>openViewer('post',t.linked_album_id));}root.append(item);});}
+  function renderTrips(){const root=$('#journey-list');root.replaceChildren();state.trips.filter(t=>t.published!==false).sort((a,b)=>(a.sort_order??0)-(b.sort_order??0)).forEach(t=>{const item=document.createElement('article');item.className='journey-card';item.innerHTML=`<img class="journey-cover" loading="lazy" src="${esc(safeImg(t.image_url))}" alt="${esc(t.title)}"><div class="journey-info"><div class="journey-date">${esc(t.label)}${t.date?' · '+esc(shortDate(t.date)):''}</div><h3>${esc(t.title)}</h3>${t.location?`<div class="journey-location">⌖ ${esc(t.location)}</div>`:''}<p>${esc(t.description)}</p><button type="button" class="journey-photos-btn" aria-label="Xem ảnh chuyến đi ${esc(t.title)}">Xem ${getMediaItems(t).length} ảnh chuyến đi ↗</button>${t.linked_album_id&&state.posts.some(p=>p.id===t.linked_album_id&&p.approved!==false)?`<button class="journey-album-btn" type="button">Xem album chuyến đi ↗</button>`:''}</div>`;$('.journey-photos-btn',item)?.addEventListener('click',()=>openViewer('trip',t.id));if(t.linked_album_id){$('.journey-album-btn',item)?.addEventListener('click',()=>openViewer('post',t.linked_album_id));}root.append(item);});}
   function renderGallery(){const root=$('#gallery-grid');root.replaceChildren();const posts=state.posts.filter(p=>p.approved!==false).filter(p=>postFilter==='all'||(postFilter==='video'&&getMediaItems(p).some(m=>m.type==='video'))||p.category===postFilter);$('#gallery-empty').hidden=posts.length>0;
     posts.forEach(p=>{const media=getMediaItems(p),videos=media.filter(m=>m.type==='video').length,n=state.comments.filter(c=>c.memory_id===p.id&&c.approved!==false).length;
       const card=document.createElement('button');card.type='button';card.className='gallery-card';card.setAttribute('aria-label',`Xem album ${p.title}, ${media.length} ảnh/video`);
@@ -185,9 +185,9 @@
       else throw new Error(`${file.name}: chỉ hỗ trợ ảnh JPG/PNG/WebP và video MP4/WebM.`);
     }
   }
-  function getEntry(kind,id){return(kind==='post'?state.posts:state.wishes).find(x=>x.id===id);}
-  function renderViewerComments(){const kind=viewKind,id=viewId,comments=(kind==='post'?state.comments:state.wishComments).filter(c=>c.approved!==false&&(kind==='post'?c.memory_id===id:c.wish_id===id));$('#comment-count').textContent=`(${comments.length})`;$('#comment-list').innerHTML=commentListMarkup(comments);}
-  function updateViewerLike(){const isWish=viewKind==='wish';const count=(isWish?state.wishLikes:state.likes)[viewId]||0;$('#post-like-count').textContent=count;$('#post-like').classList.toggle('liked',(isWish?state.wishLiked:state.liked).includes(viewId));}
+  function getEntry(kind,id){return(kind==='trip'?state.trips:kind==='post'?state.posts:state.wishes).find(x=>x.id===id);}
+  function renderViewerComments(){if(viewKind==='trip')return;const kind=viewKind,id=viewId,comments=(kind==='post'?state.comments:state.wishComments).filter(c=>c.approved!==false&&(kind==='post'?c.memory_id===id:c.wish_id===id));$('#comment-count').textContent=`(${comments.length})`;$('#comment-list').innerHTML=commentListMarkup(comments);}
+  function updateViewerLike(){if(viewKind==='trip')return;const isWish=viewKind==='wish';const count=(isWish?state.wishLikes:state.likes)[viewId]||0;$('#post-like-count').textContent=count;$('#post-like').classList.toggle('liked',(isWish?state.wishLiked:state.liked).includes(viewId));}
   function pauseCarouselVideos(){ $$('#post-carousel video').forEach(video=>{try{video.pause();}catch{}}); }
   function openViewer(kind,id){const entry=getEntry(kind,id);if(!entry)return;viewKind=kind;viewId=id;
     const medias=getMediaItems(entry),slides=medias.length?medias:[{type:'image',url:'assets/flowers.svg'}];
@@ -201,10 +201,12 @@
     });
     $('#post-carousel').querySelectorAll('.carousel-control-next,.carousel-control-prev').forEach(b=>b.hidden=slides.length<2);thumbs.hidden=slides.length<2;
     $('#album-progress').textContent=`1 / ${slides.length}`;$('#post-photo-count').textContent=`${slides.filter(m=>m.type==='image').length} ảnh · ${slides.filter(m=>m.type==='video').length} video`;
-    $('#post-modal-category').textContent=kind==='post'?entry.category:(entry.group_type||'Bạn bè & đồng nghiệp');
-    $('#post-modal-title').textContent=kind==='post'?entry.title:`Lời chúc từ ${entry.author}`;
-    $('#post-modal-meta').textContent=entry.example?'Nội dung minh họa':`Chia sẻ bởi ${entry.author} · ${shortDate(entry.created_at)}`;
-    $('#post-modal-text').textContent=kind==='post'?entry.body:entry.message;
+    $('#post-modal-category').textContent=kind==='trip'?'HÀNH TRÌNH':kind==='post'?entry.category:(entry.group_type||'Bạn bè & đồng nghiệp');
+    $('#post-modal-title').textContent=kind==='trip'||kind==='post'?entry.title:`Lời chúc từ ${entry.author}`;
+    $('#post-modal-meta').textContent=kind==='trip'?[entry.location,entry.date].filter(Boolean).join(' · '):entry.example?'Nội dung minh họa':`Chia sẻ bởi ${entry.author} · ${shortDate(entry.created_at)}`;
+    $('#post-modal-text').textContent=kind==='trip'?entry.description:kind==='post'?entry.body:entry.message;
+    $('#post-like').hidden=kind==='trip';
+    $('#post-dialog .comments-area').hidden=kind==='trip';
     updateViewerLike();renderViewerComments();$('#comment-error').hidden=true;
     if(carousel){carousel.dispose();carousel=null;}
     $('#post-dialog').showModal();
