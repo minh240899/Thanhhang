@@ -13,11 +13,20 @@
   let particles=[],targets={cake:[],heart:[],text:[]},sprites=[],rockets=[],sparks=[],stars=[];
   let density=innerWidth<500?5100:innerWidth<900?8800:11400,stage='cake',automatic=true,paused=reduce.matches||document.hidden,hidden=document.hidden,stageVisible=true,speed=1,twinkle=.65;
   let mouse={x:0,y:0,active:false};
-  const COLOR_THEMES=[
-    {name:'Xanh lam',rgb:[71,138,215]},
-    {name:'Tím lavender',rgb:[153,117,197]},
-    {name:'Hồng phấn',rgb:[205,129,164]}
-  ];
+const COLOR_THEMES = [
+    {name:'Xanh lam',       rgb:[71,138,215]},
+    {name:'Tím lavender',   rgb:[153,117,197]},
+    {name:'Hồng phấn',      rgb:[205,129,164]},
+    {name:'Hồng pastel',    rgb:[255,182,193]},
+    {name:'Đỏ ruby',        rgb:[224,64,91]},
+    {name:'Cam đào',        rgb:[255,160,122]},
+    {name:'Vàng champagne', rgb:[245,205,122]},
+    {name:'Xanh mint',      rgb:[132,211,183]},
+    {name:'Xanh ngọc',      rgb:[64,196,191]},
+    {name:'Tím violet',     rgb:[174,111,230]},
+    {name:'Trắng ngọc trai',rgb:[245,235,250]},
+    {name:'Hồng rose gold', rgb:[226,157,169]}
+];
   const COLOR_HOLD_SECONDS=3.0, COLOR_TRANSITION_SECONDS=1.25, COLOR_FRAMES=24;
   const FIREWORK_COLORS=[[255,108,176],[105,211,255],[255,199,87],[179,130,255],[122,245,190],[255,146,115]];
   const stageDuration={cake:5,heart:4,text:3};
