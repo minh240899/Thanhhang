@@ -29,7 +29,7 @@ const COLOR_THEMES = [
 ];
   const COLOR_HOLD_SECONDS=1.0, COLOR_TRANSITION_SECONDS=0.5, COLOR_FRAMES=24;
   const FIREWORK_COLORS=[[255,108,176],[105,211,255],[255,199,87],[179,130,255],[122,245,190],[255,146,115]];
-  const stageDuration={cake:5,heart:4,text:3};
+  const stageDuration={cake:6,heart:6,text:6};
   const labels={cake:'Bánh kem 3D · Nến số 25',heart:'Trái tim 3D bằng hạt sáng',text:'Thanh Hằng 2011 bằng hạt sáng'};
   function heartEquation(t){return {x:16*Math.sin(t)**3/17.2,y:-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/17.2};}
   const lerp=(a,b,u)=>a+(b-a)*u;
