@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="vi">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+ <meta name="theme-color" content="#fbf7f2"><title>Quản trị · Our Little World</title>
+ <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&display=swap" rel="stylesheet">
+ <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-locked">
+<div id="login-wall" class="login-wall"><form id="login-form" class="login-card"><div class="login-mark">♡</div><div class="eyebrow">PRIVATE ADMIN</div><h1>Quản trị kỷ niệm</h1><p>Đăng nhập để chỉnh hành trình, album, lời chúc và nhạc của Thanh Hằng.</p><label>Tài khoản<input id="login-username" autocomplete="username" value="minh" required></label><label>Mật khẩu<input id="login-password" type="password" autocomplete="current-password" required></label><p id="login-error" class="login-error" hidden></p><button class="btn primary" type="submit">Đăng nhập quản trị</button></form></div>
+ <div class="app-shell">
+  <aside class="sidebar" id="sidebar" aria-label="Điều hướng quản trị">
+   <div class="brand"><span class="brand-icon">♥</span><span>our little <em>world.</em><small>ADMIN STUDIO</small></span></div>
+   <p class="nav-caption">QUẢN LÝ NỘI DUNG</p>
+   <nav id="admin-nav">
+    <button data-section="dashboard" class="nav-item active"><span>◫</span> Tổng quan</button>
+    <button data-section="journeys" class="nav-item"><span>✦</span> 02 / Hành trình</button>
+    <button data-section="memories" class="nav-item"><span>▧</span> Album ảnh / video</button>
+    <button data-section="wishes" class="nav-item"><span>♡</span> Lời chúc</button>
+    <button data-section="comments" class="nav-item"><span>◉</span> Bình luận</button>
+    <button data-section="content" class="nav-item"><span>✎</span> Nội dung & nhạc</button>
+    <button data-section="backup" class="nav-item"><span>⇩</span> Sao lưu</button>
+   </nav>
+   <div class="sidebar-foot"><button id="logout-admin" type="button" class="btn light">Đăng xuất</button><a href="index.html" target="_blank" rel="noopener">↗ Xem trang sinh nhật</a><small>Quản lý nội dung trực tuyến</small></div>
+  </aside>
+  <main class="main">
+   <header class="topbar"><button class="mobile-menu" id="nav-open" aria-label="Mở menu">☰</button><span class="crumb">OUR LITTLE WORLD / <strong id="section-label">Tổng quan</strong></span><a class="view-link" href="index.html" target="_blank" rel="noopener">Xem website ↗</a></header>
+   <div class="workspace">
+    <div class="notice" id="demo-notice"><strong>Quản trị trực tuyến</strong> · Nội dung được lưu trên Vercel Blob dưới dạng mã hóa. Lời chúc và bình luận tự hiển thị; chỉ chủ trang đã đăng nhập có quyền ẩn, sửa hoặc xóa nội dung. Tệp upload trong bản này giới hạn 3,5 MB.</div>
+    <div class="notice danger" id="cloud-notice" hidden>Đang bật Supabase trong <code>config.js</code>. Bản Admin demo này <strong>không được phép</strong> sửa dữ liệu đám mây. Để triển khai thực tế, cần Supabase Auth + RLS phân quyền chủ trang và khu lưu trữ riêng cho tệp chờ duyệt.</div>
+    <div id="alert" role="status" class="alert" aria-live="polite" hidden></div>
+    <section class="panel active" data-panel="dashboard">
+     <div class="page-head"><div class="eyebrow">DASHBOARD</div><h1>Góc quản trị kỷ niệm <span>♡</span></h1><p>Một nơi để chỉnh sửa website và chăm sóc những lời chúc được gửi đến.</p></div>
+     <div class="stat-grid" id="stats"></div>
+     <div class="card two-col"><div><h2>Quản lý nội dung mới</h2><p class="muted" id="pending-summary">Lời chúc và bình luận được hiển thị tự động.</p><button class="btn primary" data-jump="wishes">Xem lời chúc →</button><button class="btn light" data-jump="comments">Xem bình luận →</button></div><div><h2>Tạo một kỷ niệm mới</h2><p class="muted">Quản lý hành trình, album và nội dung hiển thị trên trang chủ.</p><button class="btn primary" data-jump="journeys" data-new="1">+ Thêm chuyến đi</button><button class="btn light" data-jump="memories" data-new="1">+ Đăng album</button></div></div>
+    </section>
+    <section class="panel" data-panel="journeys">
+     <div class="page-head inline"><div><div class="eyebrow">02 / OUR JOURNEYS</div><h1>Hành trình của chúng mình</h1><p>Thêm, sửa, ẩn/hiện và thay đổi thứ tự các chuyến đi.</p></div><button class="btn primary" id="add-trip">+ Thêm chuyến đi</button></div>
+     <div class="filter-line"><span id="trips-total" class="muted"></span><span class="muted">Dùng ↑ ↓ để thay đổi thứ tự</span></div><div id="trips-list" class="item-list"></div>
+    </section>
+    <section class="panel" data-panel="memories">
+     <div class="page-head inline"><div><div class="eyebrow">03 / OUR ALBUM</div><h1>Album ảnh & video</h1><p>Quản lý bài viết, ảnh/video và trạng thái hiển thị.</p></div><button class="btn primary" id="add-memory">+ Tạo album</button></div>
+     <div class="filter-line"><label for="memory-status">Trạng thái</label><select id="memory-status"><option value="all">Tất cả</option><option value="pending">Đang ẩn</option><option value="published">Đang hiển thị</option></select></div><div id="memories-list" class="item-list"></div>
+    </section>
+    <section class="panel" data-panel="wishes">
+     <div class="page-head"><div class="eyebrow">04 / THE GUESTBOOK</div><h1>Lời chúc gửi đến Thanh Hằng</h1><p>Lời chúc tự đăng; có thể ẩn hoặc xóa những nội dung không phù hợp theo nhóm Gia đình, Bạn bè & đồng nghiệp hoặc Người thương.</p></div>
+     <div class="filter-line"><label for="wishes-filter">Lọc</label><select id="wishes-filter"><option value="all">Tất cả</option><option value="pending">Đang ẩn</option><option value="published">Đang hiển thị</option><option value="Gia đình">Gia đình</option><option value="Bạn bè & đồng nghiệp">Bạn bè & đồng nghiệp</option><option value="Người thương">Người thương</option></select><button class="btn light" id="add-wish">+ Thêm lời chúc</button></div><div id="wishes-list" class="item-list"></div>
+    </section>
+    <section class="panel" data-panel="comments">
+     <div class="page-head"><div class="eyebrow">COMMUNITY</div><h1>Quản lý bình luận</h1><p>Bình luận hiển thị ngay khi gửi. Chủ trang có thể ẩn hoặc xóa sau.</p></div>
+     <div class="filter-line"><label for="comments-filter">Trạng thái</label><select id="comments-filter"><option value="all">Tất cả</option><option value="pending">Đang ẩn</option><option value="published">Đang hiển thị</option></select></div><div id="comments-list" class="item-list"></div>
+    </section>
+    <section class="panel" data-panel="content">
+     <div class="page-head"><div class="eyebrow">PERSONALIZE</div><h1>Nội dung trang chủ & nhạc</h1><p>Thay lời nhắn, tên người nhận, câu chuyện và lời chúc sinh nhật mà không sửa HTML.</p></div>
+     <form id="settings-form" class="form-card">
+      <h2>01 / Trang chủ</h2><div class="fields two"><label>Tên bạn gái<input name="recipientName" maxlength="80" required placeholder="Thanh Hằng"></label><label>Người gửi<input name="senderName" maxlength="60" placeholder="Anh"></label></div>
+      <label>Lời mở đầu<textarea name="heroMessage" maxlength="800" rows="3"></textarea></label>
+      <h2>02 / Our Story</h2><label>Tiêu đề câu chuyện<input name="storyTitle" maxlength="180"></label><label>Đoạn văn thứ nhất<textarea name="storyText1" rows="3" maxlength="1600"></textarea></label><label>Đoạn văn thứ hai<textarea name="storyText2" rows="3" maxlength="1600"></textarea></label>
+      <h2>03 / Our Journeys</h2><label>Tiêu đề mục hành trình<input name="journeyHeading" maxlength="180"></label><label>Mô tả mục hành trình<textarea name="journeySubtitle" rows="2" maxlength="500"></textarea></label>
+      <h2>04 / Lá thư sinh nhật</h2><label>Tiêu đề<input name="letterTitle" maxlength="220"></label><label>Lời chúc<textarea name="letterText" rows="4" maxlength="1800"></textarea></label>
+      <h2>05 / Nhạc nền</h2><label>URL MP3/MP4 hoặc đường dẫn trong <code>assets/</code><input name="musicUrl" placeholder="assets/birthday_theme.mp3"></label><p class="muted note">Đường dẫn này sẽ áp dụng sau khi tải lại trang công khai. File từ máy cần chép vào thư mục <code>assets/</code>; chọn file tại trang chính chỉ là nghe thử, không lưu lên server.</p>
+      <div class="form-actions"><button class="btn primary" type="submit">Lưu thay đổi</button><a class="btn light" target="_blank" rel="noopener" href="index.html">Xem kết quả ↗</a></div>
+     </form>
+    </section>
+    <section class="panel" data-panel="backup">
+     <div class="page-head"><div class="eyebrow">DATA & SAFETY</div><h1>Sao lưu & khôi phục</h1><p>Xuất dữ liệu demo sang JSON để giữ bản sao dự phòng trước khi chỉnh sửa nhiều nội dung.</p></div>
+     <div class="card two-col"><div><h2>Xuất dữ liệu</h2><p class="muted">Bao gồm hành trình, bài viết, lời chúc, bình luận, lượt thích và nội dung trang chủ. Tệp video lưu trong IndexedDB sẽ không nằm trong bản JSON này.</p><button class="btn primary" id="export-data">↓ Tải file JSON</button></div><div><h2>Nhập dữ liệu</h2><p class="muted">Việc nhập sẽ thay thế toàn bộ dữ liệu hiện có của trình duyệt này. Chỉ nhập file sao lưu đáng tin cậy.</p><label class="file-btn" for="import-file">↑ Chọn file JSON</label><input id="import-file" type="file" accept=".json,application/json" hidden></div></div>
+     <div class="card danger-zone"><h2>Khôi phục dữ liệu mẫu</h2><p class="muted">Xóa dữ liệu nội dung đang lưu và tạo lại các ví dụ minh họa. Không hoàn tác được.</p><button class="btn danger" id="reset-data">Đặt lại dữ liệu demo</button></div>
+    </section>
+   </div>
+  </main>
+ </div>
+ <dialog id="editor" class="editor" aria-labelledby="editor-title"><form id="editor-form" class="editor-body"><div class="editor-head"><div><div class="eyebrow" id="editor-kicker">CHỈNH SỬA</div><h2 id="editor-title">Nội dung</h2></div><button type="button" class="close" id="close-editor" aria-label="Đóng">×</button></div><div id="editor-fields" class="editor-fields"></div><p id="editor-error" class="error" role="alert" hidden></p><div class="form-actions"><button class="btn light" type="button" id="cancel-editor">Hủy</button><button class="btn primary" id="save-editor" type="submit">Lưu</button></div></form></dialog>
+ <script src="config.js"></script><script src="demo-seed.js"></script><script src="admin.js"></script>
+</body>
+</html>

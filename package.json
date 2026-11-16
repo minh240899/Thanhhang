@@ -1,0 +1,12 @@
+{
+  "name": "thanh-hang-birthday",
+  "private": true,
+  "version": "15.0.0",
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "2.9.0"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
