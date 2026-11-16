@@ -48,3 +48,11 @@ Giới hạn gửi phía server hiện chỉ là best-effort, không đảm bả
 - File chọn trong **widget nhạc ở trang công khai** chỉ dùng để nghe thử tạm thời, không thay đổi bản nhạc chung và không cấp quyền chỉnh sửa cho khách.
 - Kiểm tra sau triển khai: đăng nhập Admin, tải MP3 hợp lệ, xem URL nhạc được lưu; mở trình duyệt ẩn danh trên thiết bị khác, kiểm tra trình phát và khi nhấn bật nhạc; thử file vượt 20 MiB và tệp sai định dạng (phải bị từ chối).
 - Tệp nhạc cũ không bị xóa tự động trên Blob khi thay bài; quản lý dung lượng tại Vercel Storage. Tải file lên không đồng nghĩa tự động có bản quyền sử dụng/phân phối nhạc.
+
+## Chuyển hình 3D: xoắn về tâm rồi bung hạt (2026-11-16)
+- Tại `particle_engine.js`, `stageDuration={cake:6,heart:6,text:6}` là thời gian **giữ hình hoàn chỉnh** (giây).
+- `MORPH_SECONDS=3.4` là thời gian **chuyển giữa hai hình**: nửa đầu xoay hội tụ thành điểm sáng, nửa sau xoay bung ra đích 3D.
+- Chu trình tự động: **bánh kem → trái tim → chữ Thanh Hằng 2011 → bánh kem**, liên tục và dùng lại đúng cùng tập hạt.
+- Chuyển cảnh không tắt/bật lại độ hiện hạt và không dùng vận tốc tung hạt ngẫu nhiên. Giữa các cảnh có pháo hoa trái tim.
+- Khi chỉnh số màu trong `COLOR_THEMES`, chỉ số màu của các hạt tạo số 25 được tuần hoàn an toàn theo bảng màu riêng.
+- Kiểm thử đã thực hiện: cú pháp JavaScript, hội tụ tâm, liên tục tại điểm giữa, đúng vị trí đích qua cả ba cảnh, định danh hạt và bảo vệ chỉ số màu. Cần xem trực quan ở trình duyệt di động/máy tính để đánh giá thẩm mỹ và hiệu năng.
