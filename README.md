@@ -39,3 +39,12 @@ Giới hạn gửi phía server hiện chỉ là best-effort, không đảm bả
 - Anonymous media consumes storage/bandwidth; per-instance throttling is not a complete defense. Abandoned uploads can leave orphaned Blob objects. Review storage usage and use WAF/persistent throttling if widely shared.
 - Background music already uses `assets/birthday_theme.mp3` and `musicAutoplay:true`. Playback is attempted on entry; when a browser blocks audible autoplay, it retries at the first ordinary user interaction. It cannot guarantee unmuted autoplay on every browser.
 - Live smoke tests: text-only wish; JPG image-only wish; MP4 wish; 2-image album; MP4/WebM album; reload and another device; Admin hide/delete; music permissions.
+
+## V16.3 — Upload nhạc nền cố định bằng Admin (2026-11-16)
+- Vào `/admin` → **Nội dung & nhạc** → **Chọn bài nhạc** → nghe thử → **Tải nhạc lên và áp dụng** (hoặc `Lưu thay đổi`).
+- Nhạc MP3/M4A/OGG/WAV tối đa 20 MiB được tải trực tiếp từ trình duyệt lên Vercel Blob bằng token ngắn hạn tại `/api/admin/music-upload`, chỉ cấp sau khi Admin xác thực.
+- Sau khi upload thành công, URL được lưu trong `settings.musicUrl` của trạng thái máy chủ. Website công khai tải cấu hình từ `/api/content`; người dùng trên thiết bị khác sẽ nghe bài mới khi mở/tải lại website. Người dùng từng tự chọn nhạc riêng vẫn giữ cài đặt trên thiết bị của họ.
+- Nên dùng **MP3** để có khả năng tương thích trình duyệt tốt. Trình duyệt vẫn có thể chặn tự phát nhạc có âm thanh cho đến khi người xem tương tác.
+- File chọn trong **widget nhạc ở trang công khai** chỉ dùng để nghe thử tạm thời, không thay đổi bản nhạc chung và không cấp quyền chỉnh sửa cho khách.
+- Kiểm tra sau triển khai: đăng nhập Admin, tải MP3 hợp lệ, xem URL nhạc được lưu; mở trình duyệt ẩn danh trên thiết bị khác, kiểm tra trình phát và khi nhấn bật nhạc; thử file vượt 20 MiB và tệp sai định dạng (phải bị từ chối).
+- Tệp nhạc cũ không bị xóa tự động trên Blob khi thay bài; quản lý dung lượng tại Vercel Storage. Tải file lên không đồng nghĩa tự động có bản quyền sử dụng/phân phối nhạc.
