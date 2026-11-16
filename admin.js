@@ -97,7 +97,8 @@
     const files=f.getAll('image_files').filter(file=>file instanceof File&&file.size);
     const typedUrls=get('image_urls').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     const originalCover=entry.image_url;
-    const uploaded=await Promise.all(files.map(compressImage));
+    if(new Set([entry.image_url,...typedUrls]).size+files.length>12)throw new Error('Tối đa 12 ảnh trong mỗi chuyến đi.');
+    const uploaded=[];for(const file of files)uploaded.push(await compressImage(file));
     if(files.length&&(!existing||originalCover==='assets/coast.svg'))entry.image_url=uploaded[0];
     const images=[...new Set([entry.image_url,...typedUrls,...uploaded].filter(Boolean))];
     if(images.length>12)throw new Error('Tối đa 12 ảnh trong mỗi chuyến đi.');
