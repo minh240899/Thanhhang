@@ -64,7 +64,7 @@
  }
  function fillSettings(){const form=$('#settings-form');for(const [k,v] of Object.entries(settings)){const el=form.elements.namedItem(k);if(el)el.value=String(v??'')}}
  function render(){renderDashboard();renderJourneys();renderMemories();renderWishes();renderComments();fillSettings();}
- async function mutate(fn){if(!noCloud())return;try{fn();await persist();render();notify('Đã lưu thay đổi. Tải lại trang sinh nhật để xem kết quả.')}catch(e){notify(e.message,true)}}
+ async function mutate(fn){if(!noCloud())return;try{fn();await persist();render();notify('Đã lưu thay đổi. Tải lại trang sinh nhật để xem kết quả.')}catch(e){notify(e.message,true);if(/dữ liệu đã thay đổi|xung đột/i.test(e.message))serverCache=null}}
  function reorder(id,offset){const sorted=sortedTrips(),index=sorted.findIndex(x=>x.id===id),next=index+offset;if(index<0||next<0||next>=sorted.length)return;[sorted[index],sorted[next]]=[sorted[next],sorted[index]];mutate(()=>sorted.forEach((x,i)=>x.sort_order=i));}
  async function remove(type,item){if(!noCloud()||!confirmDelete(item.title||item.author||item.message))return;await mutate(()=>{
   if(type==='trip')state.trips=state.trips.filter(x=>x.id!==item.id);
@@ -80,7 +80,7 @@
  const check=(key,label,value)=>`<label class="checkrow"><input type="checkbox" name="${esc(key)}" ${value?'checked':''}> <span>${esc(label)}</span></label>`;
  function openEditor(type,id=null){if(!noCloud())return;editType=type;editId=id;pendingFile=null;const coll={trip:state.trips,post:state.posts,wish:state.wishes}[type];const entry=coll.find(x=>x.id===id)||{};$('#editor-title').textContent=({trip:'Hành trình',post:'Album ảnh / video',wish:'Lời chúc'})[type];$('#editor-kicker').textContent=id?'CHỈNH SỬA':'THÊM MỚI';$('#editor-error').hidden=true;
   let fields='';
-  if(type==='trip')fields=input('title','Tên chuyến đi',entry.title||'',true,'maxlength="100"')+input('date','Ngày đi (nếu có)',entry.date||'',false,'type="date"')+input('location','Địa điểm (nếu có)',entry.location||'',false,'maxlength="100"')+input('label','Nhãn hiển thị (ví dụ: CHUYẾN ĐI #04)',entry.label||`CHUYẾN ĐI #${String(state.trips.length+1).padStart(2,'0')}`)+textarea('description','Câu chuyện chuyến đi',entry.description||'',4)+input('image_url','URL ảnh hoặc đường dẫn assets/',entry.image_url||'assets/coast.svg')+`<label>Hoặc tải ảnh mới lên<input name="image_file" type="file" accept="image/jpeg,image/png,image/webp"><small>Ảnh được nén để lưu trong trình duyệt bản demo.</small></label>`+`<label>Liên kết đến album đã đăng<select name="linked_album_id"><option value="">Không liên kết</option>${state.posts.map(p=>`<option value="${esc(p.id)}" ${entry.linked_album_id===p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select></label>`+check('published','Hiển thị trên trang sinh nhật',published(entry));
+  if(type==='trip')fields=input('title','Tên chuyến đi',entry.title||'',true,'maxlength="100"')+input('date','Ngày đi (nếu có)',entry.date||'',false,'type="date"')+input('location','Địa điểm (nếu có)',entry.location||'',false,'maxlength="100"')+input('label','Nhãn hiển thị (ví dụ: CHUYẾN ĐI #04)',entry.label||`CHUYẾN ĐI #${String(state.trips.length+1).padStart(2,'0')}`)+textarea('description','Câu chuyện chuyến đi',entry.description||'',4)+input('image_url','Ảnh đại diện (URL hoặc assets/)',entry.image_url||'assets/coast.svg')+textarea('image_urls','Danh sách ảnh chuyến đi (mỗi dòng một URL)',(Array.isArray(entry.image_urls)&&entry.image_urls.length?entry.image_urls:(entry.image_url?[entry.image_url]:[])).join('\n'),4)+`<label>Chọn nhiều ảnh chuyến đi<input name="image_files" type="file" accept="image/jpeg,image/png,image/webp" multiple><small>Chọn tối đa 12 ảnh JPG/PNG/WebP. Ảnh được nén và lưu trên Vercel Blob.</small></label>`+`<label>Liên kết đến album đã đăng<select name="linked_album_id"><option value="">Không liên kết</option>${state.posts.map(p=>`<option value="${esc(p.id)}" ${entry.linked_album_id===p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select></label>`+check('published','Hiển thị trên trang sinh nhật',published(entry));
   if(type==='post')fields=input('title','Tên album',entry.title||'',true,'maxlength="90"')+input('author','Người đăng',entry.author||'Admin',true,'maxlength="40"')+textarea('body','Nội dung bài viết',entry.body||'',4)+select('category','Danh mục',entry.category||'Du lịch',['Du lịch','Hẹn hò','Đời thường','Bạn bè & đồng nghiệp','Gia đình'])+textarea('media_urls','Các đường dẫn ảnh/video hiện có (mỗi dòng một URL)',mediaFor(entry).map(m=>m.url).join('\n'),4)+`<label>Tải thêm ảnh/video<input type="file" name="media_files" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" multiple><small>Video tối đa 30 MB/tệp, ảnh tối đa 8 MB/tệp, 10 tệp trong album.</small></label>`+check('approved','Công khai trên website',approved(entry));
   if(type==='wish')fields=input('author','Người gửi',entry.author||'',true,'maxlength="40"')+select('group_type','Nhóm',entry.group_type||'Bạn bè & đồng nghiệp',['Gia đình','Bạn bè & đồng nghiệp','Người thương'])+textarea('message','Lời chúc',entry.message||'',5)+textarea('media_urls','Đường dẫn ảnh/video hiện có (mỗi dòng một URL)',mediaFor(entry).map(m=>m.url).join('\n'),3)+`<label>Thêm ảnh/video<input name="media_files" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" multiple><small>Tối đa 5 tệp, 1 video.</small></label>`+check('approved','Hiển thị công khai',approved(entry));
   $('#editor-fields').innerHTML=fields;$('#editor').showModal();
@@ -94,8 +94,15 @@
    if(editType==='trip'){
     if(!get('title'))throw new Error('Cần nhập tên chuyến đi');
     Object.assign(entry,{title:get('title'),description:get('description'),label:get('label')||'CHUYẾN ĐI',date:get('date'),location:get('location'),linked_album_id:get('linked_album_id'),image_url:get('image_url')||'assets/coast.svg',published:f.has('published')});
-    const upload=f.get('image_file');if(upload instanceof File&&upload.size)entry.image_url=await compressImage(upload);
-    if(!safeUrl(entry.image_url)||entry.image_url.startsWith('localvideo:'))throw new Error('URL ảnh phải là https://, assets/ hoặc ảnh đã tải lên.');
+    const files=f.getAll('image_files').filter(file=>file instanceof File&&file.size);
+    const typedUrls=get('image_urls').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    const originalCover=entry.image_url;
+    const uploaded=await Promise.all(files.map(compressImage));
+    if(files.length&&(!existing||originalCover==='assets/coast.svg'))entry.image_url=uploaded[0];
+    const images=[...new Set([entry.image_url,...typedUrls,...uploaded].filter(Boolean))];
+    if(images.length>12)throw new Error('Tối đa 12 ảnh trong mỗi chuyến đi.');
+    if(images.some(url=>!safeUrl(url)||url.startsWith('localvideo:')))throw new Error('URL ảnh phải là HTTPS, assets/ hoặc ảnh đã tải lên.');
+    entry.image_urls=images;
     if(!existing)entry.sort_order=state.trips.length;
    } else {
     const fields=editType==='post'?{title:get('title'),author:get('author'),body:get('body'),category:get('category')}:{author:get('author'),message:get('message'),group_type:get('group_type')};
