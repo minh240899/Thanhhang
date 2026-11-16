@@ -5,7 +5,7 @@
 - Secure Admin: `/admin` (frontend) -> `/api/admin/*` (PBKDF2 hashed credential + HttpOnly signed session)
 - Persistent state: Vercel Blob (`secure/birthday-state-v15.enc`), AES-256-GCM encrypted at rest; Vercel public Blob store contains ciphertext only.
 - Admin uploads: images and small files up to 3.5 MB; video larger files: use a stable HTTPS URL or extend to signed direct uploads.
-- Guest text wishes/comments and likes: `/api/guest` (immediate publication; Admin can hide/delete later; best-effort rate limit). Guest media submissions remain disabled until safe upload controls, quotas and abuse protection are implemented.
+- Guest wishes including photos/videos, albums, comments and likes: `/api/guest` (immediate publication); `/api/guest-upload` issues short-lived, media-scoped direct-to-Blob upload tokens. No guest login required; Admin can hide/delete later. Local best-effort throttling remains.
 - HTML/CSS/JS source: best stored in a private GitHub repository; do not commit `.env*` or any secret. GitHub pushes can trigger Vercel deployments when Git is connected.
 
 ## Critical configuration
@@ -40,3 +40,12 @@ Never store raw password in JS/HTML or commit secrets to Git. Rotate credentials
 - Admin image source limit: 8 MiB before compression, upload payload limited to 3.5 MB; server-side upload of MP4/WebM remains limited to 3.5 MB. Larger videos require a direct HTTPS URL or a separately developed signed-client-upload flow.
 - Deployment verification: check `GET /api/content`, sign into `/admin`, create/edit a test trip with 2 images, refresh the public site and confirm the carousel. Preserve an Admin JSON export before manual data migrations.
 - Concurrent writes with repeated conflicts, network failures, and unsupported file formats remain visible to users. This is still a small-site Blob-backed application, not a transactional multi-user database.
+
+## V16.2 — Public guest media and music improvements (2026-11-16)
+- Visitors can post text wishes, image/video-only wishes, and public media albums without signing in or waiting for manual approval.
+- Direct uploads: browser -> Vercel Blob using a scoped client token from `/api/guest-upload`; then `/api/guest` checks Blob metadata before writing media URLs to encrypted state.
+- Limits: wishes up to 5 files/1 video; albums 10 files/2 videos; JPEG/PNG/WebP <=8 MiB; MP4/WebM <=30 MiB; total <=75 MiB per post. Multiple selection supported.
+- The browser imports a pinned Vercel Blob client ESM bundle from `esm.sh` on upload. Visitors require network access to that host.
+- Anonymous media consumes storage/bandwidth; per-instance throttling is not a complete defense. Abandoned uploads can leave orphaned Blob objects. Review storage usage and use WAF/persistent throttling if widely shared.
+- Background music already uses `assets/birthday_theme.mp3` and `musicAutoplay:true`. Playback is attempted on entry; when a browser blocks audible autoplay, it retries at the first ordinary user interaction. It cannot guarantee unmuted autoplay on every browser.
+- Live smoke tests: text-only wish; JPG image-only wish; MP4 wish; 2-image album; MP4/WebM album; reload and another device; Admin hide/delete; music permissions.
