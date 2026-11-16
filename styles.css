@@ -127,3 +127,7 @@
 
 .journey-location{color:#a05d70;font-size:11px;margin:-2px 0 10px}.journey-album-btn{background:transparent;border:0;border-bottom:1px solid #ca8293;padding:6px 0;color:#a7596b;font-size:11px;font-weight:700;margin-top:12px}
 .admin-entry{font-size:11px;color:#a45d72;text-decoration:underline;text-underline-offset:3px}
+
+/* Journey photo gallery: accessible action, usable on touch and desktop. */
+.journey-photos-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:16px;padding:10px 14px;border:1px solid #d7b1ac;border-radius:7px;background:#fff8f4;color:var(--rose-deep);font-size:12px;font-weight:700;line-height:1.4;cursor:pointer;transition:background .2s,border-color .2s}
+.journey-photos-btn:hover,.journey-photos-btn:focus-visible{background:#f8e7e3;border-color:var(--rose);outline-offset:3px}
