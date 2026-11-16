@@ -136,6 +136,30 @@
     image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Ảnh không hợp lệ hoặc trình duyệt không thể đọc ảnh.'));};image.src=url;
   });}
   async function processMedia(files){const items=[];for(const file of files){const type=isVideo(file)?'video':'image';const url=cloudMode?await uploadCloudMedia(file):type==='video'?await storeLocalVideo(file):await compactPhoto(file);items.push({type,url});}return items;}
+  // Direct guest media upload: Vercel Blob receives files without routing video through a Function.
+  let blobClientPromise;
+  async function uploadGuestFiles(files){
+    if(!files.length)return [];
+    if(!blobClientPromise)blobClientPromise=import('https://esm.sh/@vercel/blob@2.9.0/client?bundle');
+    let upload;
+    try{({upload}=await blobClientPromise);}
+    catch{blobClientPromise=null;throw new Error('Không tải được thư viện gửi ảnh/video. Kiểm tra kết nối mạng rồi thử lại.');}
+    const media=[];
+    for(let i=0;i<files.length;i++){
+      const file=files[i],video=isVideo(file);
+      const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','video/mp4':'mp4','video/webm':'webm'})[file.type];
+      if(!ext)throw new Error('Định dạng tệp không được hỗ trợ.');
+      $('#submit-compose').textContent='Đang tải '+(i+1)+'/'+files.length+' tệp…';
+      try{
+        const blob=await upload('guest-media/'+uid()+'.'+ext,file,{
+          access:'public',handleUploadUrl:'/api/guest-upload',multipart:video&&file.size>10*1024*1024
+        });
+        if(!blob?.url)throw new Error('Không nhận được URL tệp.');
+        media.push({type:video?'video':'image',url:blob.url});
+      }catch(e){throw new Error('Không tải được '+file.name+': '+(e?.message||'Vui lòng thử lại.'));}
+    }
+    return media;
+  }
   function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3600);}
   function renderCounts(){$('#stat-moments').textContent=String(state.posts.filter(x=>x.approved!==false).length).padStart(2,'0');$('#stat-journeys').textContent=String(state.trips.filter(x=>x.published!==false).length).padStart(2,'0');$('#stat-wishes').textContent=String(state.wishes.filter(x=>x.approved!==false).length).padStart(2,'0');}
   function renderTrips(){const root=$('#journey-list');root.replaceChildren();state.trips.filter(t=>t.published!==false).sort((a,b)=>(a.sort_order??0)-(b.sort_order??0)).forEach(t=>{const item=document.createElement('article');item.className='journey-card';item.innerHTML=`<img class="journey-cover" loading="lazy" src="${esc(safeImg(t.image_url))}" alt="${esc(t.title)}"><div class="journey-info"><div class="journey-date">${esc(t.label)}${t.date?' · '+esc(shortDate(t.date)):''}</div><h3>${esc(t.title)}</h3>${t.location?`<div class="journey-location">⌖ ${esc(t.location)}</div>`:''}<p>${esc(t.description)}</p><button type="button" class="journey-photos-btn" aria-label="Xem ảnh chuyến đi ${esc(t.title)}">Xem ${getMediaItems(t).length} ảnh chuyến đi ↗</button>${t.linked_album_id&&state.posts.some(p=>p.id===t.linked_album_id&&p.approved!==false)?`<button class="journey-album-btn" type="button">Xem album chuyến đi ↗</button>`:''}</div>`;$('.journey-photos-btn',item)?.addEventListener('click',()=>openViewer('trip',t.id));if(t.linked_album_id){$('.journey-album-btn',item)?.addEventListener('click',()=>openViewer('post',t.linked_album_id));}root.append(item);});}
@@ -223,16 +247,36 @@
     if($('#post-dialog').open&&viewId){renderViewerComments();updateViewerLike();}
   }
   async function sendGuest(input){const r=await fetch('/api/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Không gửi được dữ liệu');return d;}
-  async function saveWish(author,message,group,files){if(remoteMode){if(files.length)throw new Error('Ảnh/video từ khách sẽ được bật sau khi hoàn tất chống spam. Hiện hãy gửi lời chúc bằng chữ.');await sendGuest({type:'wish',author,message,group});await refreshRemoteContent();toast('Lời chúc đã đăng công khai ♡');return;}const media_items=await processMedia(files),image_urls=media_items.filter(m=>m.type==='image').map(m=>m.url);
-    const item={id:uid(),author,message,group_type:group,media_items,image_urls,image_url:image_urls[0]||null,approved:!cloudMode?false:false,created_at:now()};
-    if(cloudMode){await api('POST','/rest/v1/wishes',{author,message,group_type:group,image_url:item.image_url,image_urls,media_items,approved:false});toast('Lời chúc đang chờ chủ trang duyệt.');}
-    else{state.wishes.unshift(item);await saveLocalState();renderAll();toast('Đã nhận lời chúc. Chủ trang sẽ duyệt trước khi hiển thị!');}
-  }
-  async function saveMemory(author,title,body,category,files){if(remoteMode)throw new Error('Tính năng tải album từ khách tạm khóa để bảo vệ website khỏi spam. Admin có thể thêm album trong trang quản trị.');if(!files.length)throw new Error('Vui lòng chọn ít nhất một ảnh hoặc video cho bài viết.');
+  async function saveWish(author,message,group,files){
+    if(remoteMode){
+      const media_items=await uploadGuestFiles(files);
+      $('#submit-compose').textContent='Đang đăng lời chúc…';
+      await sendGuest({type:'wish',author,message,group,media_items});
+      await refreshRemoteContent();
+      toast('Lời chúc và ảnh/video đã đăng công khai ♡');
+      return;
+    }
     const media_items=await processMedia(files),image_urls=media_items.filter(m=>m.type==='image').map(m=>m.url);
-    const item={id:uid(),author,title,body,category,media_items,image_urls,image_url:image_urls[0]||null,approved:false,created_at:now()};
+    const item={id:uid(),author,message,group_type:group,media_items,image_urls,image_url:image_urls[0]||null,approved:!cloudMode,created_at:now()};
+    if(cloudMode){await api('POST','/rest/v1/wishes',{author,message,group_type:group,image_url:item.image_url,image_urls,media_items,approved:false});toast('Lời chúc đang chờ chủ trang duyệt.');}
+    else{state.wishes.unshift(item);await saveLocalState();renderAll();toast('Lời chúc đã được đăng ♡');}
+  }
+  async function saveMemory(author,title,body,category,files){
+    if(!files.length)throw new Error('Vui lòng chọn ít nhất một ảnh hoặc video cho bài viết.');
+    if(remoteMode){
+      const media_items=await uploadGuestFiles(files);
+      $('#submit-compose').textContent='Đang đăng album…';
+      await sendGuest({type:'post',author,title,message:body,category,media_items});
+      postFilter='all';
+      $$('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
+      await refreshRemoteContent();
+      toast('Album ảnh/video đã đăng công khai ♡');
+      return;
+    }
+    const media_items=await processMedia(files),image_urls=media_items.filter(m=>m.type==='image').map(m=>m.url);
+    const item={id:uid(),author,title,body,category,media_items,image_urls,image_url:image_urls[0]||null,approved:!cloudMode,created_at:now()};
     if(cloudMode){await api('POST','/rest/v1/memories',{author,title,body,category,image_url:item.image_url,image_urls,media_items,approved:false});toast('Album đang chờ chủ trang duyệt.');}
-    else{state.posts.unshift(item);await saveLocalState();postFilter='all';$$('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));renderAll();toast(`Đã gửi ${media_items.length} ảnh/video, đang chờ duyệt!`);}
+    else{state.posts.unshift(item);await saveLocalState();postFilter='all';$$('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));renderAll();toast('Đã đăng '+media_items.length+' ảnh/video ♡');}
   }
   async function addComment(kind,id,author,message){if(remoteMode){await sendGuest({type:'comment',kind,id,author,message});if(kind==='wish')expandedWishes.add(id);await refreshRemoteContent();toast('Bình luận đã hiển thị ♡');return;}const item={id:uid(),author,message,created_at:now()};
     if(cloudMode){await api('POST',kind==='post'?'/rest/v1/comments':'/rest/v1/wish_comments',kind==='post'?{memory_id:id,author,message,approved:false}:{wish_id:id,author,message,approved:false});toast('Bình luận đang chờ chủ trang duyệt.');return;}
@@ -250,7 +294,7 @@
   function handleShare(){if(location.protocol==='file:'){toast('Hãy đưa website lên hosting để chia sẻ liên kết cho bạn bè.');return;}const url=location.href.split('#')[0];navigator.clipboard?.writeText(url).then(()=>toast('Đã sao chép link!')).catch(()=>toast('Hãy sao chép URL trên thanh địa chỉ.'))||toast('Hãy sao chép URL trên thanh địa chỉ.');}
   async function init(){
     $('#hero-name').textContent=cfg.recipientName||'cô gái đặc biệt';$('#hero-message').textContent=cfg.heroMessage||'';$('#sender-name').textContent=(cfg.senderName||'Anh')+' ♡';document.title=`Gửi ${cfg.recipientName||'em'} | Birthday Memories`;
-    try{if(remoteMode){const res=await fetch('/api/content',{cache:'no-store'});if(!res.ok)throw new Error('Không kết nối được dữ liệu');const data=await res.json();state=data.state?{...emptyState(),...data.state}:{...emptyState(),posts:samplePosts,trips:sampleTrips,wishes:sampleWishes};applyAdminSettings(data.settings);$('#storage-hint').textContent='Dữ liệu trực tuyến: lời chúc và bình luận tự hiển thị ngay sau khi gửi. Chủ trang có thể ẩn hoặc xóa khi cần.';}else if(cloudMode){await fetchCloud();$('#storage-hint').textContent='Chế độ chia sẻ: nội dung mới cần chủ trang duyệt trước khi hiển thị công khai.';}else{const saved=await getLocalState();state=saved?{...emptyState(),...saved}: {...emptyState(),posts:samplePosts,trips:sampleTrips,wishes:sampleWishes};await saveLocalState();await hydrateLocalVideos();if(ephemeralStorage)$('#storage-hint').textContent='Trình duyệt đang chặn lưu trữ: bài đăng/video chỉ còn trong phiên xem hiện tại. Dùng hosting để lưu ổn định.';}}catch(error){console.error('Lỗi tải dữ liệu:',error);state=emptyState();toast('Không tải được dữ liệu. Kiểm tra cấu hình kết nối hoặc bộ nhớ.');}
+    try{if(remoteMode){const res=await fetch('/api/content',{cache:'no-store'});if(!res.ok)throw new Error('Không kết nối được dữ liệu');const data=await res.json();state=data.state?{...emptyState(),...data.state}:{...emptyState(),posts:samplePosts,trips:sampleTrips,wishes:sampleWishes};applyAdminSettings(data.settings);$('#storage-hint').textContent='Không cần đăng nhập: mọi người có thể gửi lời chúc, ảnh, video và album. Nội dung hiển thị ngay; Admin có thể ẩn hoặc xóa.';}else if(cloudMode){await fetchCloud();$('#storage-hint').textContent='Chế độ chia sẻ: nội dung mới cần chủ trang duyệt trước khi hiển thị công khai.';}else{const saved=await getLocalState();state=saved?{...emptyState(),...saved}: {...emptyState(),posts:samplePosts,trips:sampleTrips,wishes:sampleWishes};await saveLocalState();await hydrateLocalVideos();if(ephemeralStorage)$('#storage-hint').textContent='Trình duyệt đang chặn lưu trữ: bài đăng/video chỉ còn trong phiên xem hiện tại. Dùng hosting để lưu ổn định.';}}catch(error){console.error('Lỗi tải dữ liệu:',error);state=emptyState();toast('Không tải được dữ liệu. Kiểm tra cấu hình kết nối hoặc bộ nhớ.');}
     if(!cloudMode&&!remoteMode){try{applyAdminSettings(await getAdminSettings());}catch(e){console.warn('Không đọc được cấu hình trang',e);}}
     renderAll();
     $$('[data-open]').forEach(el=>el.addEventListener('click',()=>openCompose(el.dataset.open)));
@@ -264,7 +308,7 @@
     $$('[data-wish-filter]').forEach(b=>b.addEventListener('click',()=>{wishFilter=b.dataset.wishFilter;$$('[data-wish-filter]').forEach(x=>x.classList.toggle('active',x===b));renderWishes();}));
     $('#message').addEventListener('input',e=>$('#count-chars').textContent=`${e.target.value.length} / 1200`);
     $('#photo-input').addEventListener('change',e=>{try{const additions=[...(e.target.files||[])],proposed=[...selectedFiles,...additions];validateFiles(proposed);selectedFiles=proposed;updatePhotoPreviews();$('#form-error').hidden=true;}catch(error){$('#form-error').textContent=error.message;$('#form-error').hidden=false;}finally{e.target.value='';}});
-    $('#compose-form').addEventListener('submit',async event=>{event.preventDefault();const submit=$('#submit-compose'),error=$('#form-error');submit.disabled=true;error.hidden=true;try{const author=$('#author').value.trim(),message=$('#message').value.trim();if(!author||!message)throw new Error('Vui lòng điền tên và nội dung.');validateFiles(selectedFiles);if(activeTab==='wish')await saveWish(author,message,$('#wish-group').value,selectedFiles);else{const title=$('#post-title').value.trim();if(!title)throw new Error('Vui lòng nhập tiêu đề bài viết.');await saveMemory(author,title,message,$('#post-category').value,selectedFiles);}$('#compose-form').reset();$('#count-chars').textContent='0 / 1200';clearFiles();$('#compose-dialog').close();}catch(e){error.textContent=e.message||'Không thể gửi nội dung.';error.hidden=false;}finally{submit.disabled=false;submit.textContent=activeTab==='wish'?'Gửi lời chúc ♡':'Đăng album kỷ niệm ↗';}});
+    $('#compose-form').addEventListener('submit',async event=>{event.preventDefault();const submit=$('#submit-compose'),error=$('#form-error');submit.disabled=true;error.hidden=true;try{const author=$('#author').value.trim(),message=$('#message').value.trim();if(!author)throw new Error('Vui lòng nhập tên của bạn.');validateFiles(selectedFiles);if(activeTab==='wish'&&!message&&!selectedFiles.length)throw new Error('Hãy viết lời chúc hoặc đính kèm ít nhất một ảnh/video.');if(activeTab==='wish')await saveWish(author,message,$('#wish-group').value,selectedFiles);else{const title=$('#post-title').value.trim();if(!title)throw new Error('Vui lòng nhập tiêu đề bài viết.');await saveMemory(author,title,message,$('#post-category').value,selectedFiles);}$('#compose-form').reset();$('#count-chars').textContent='0 / 1200';clearFiles();$('#compose-dialog').close();}catch(e){error.textContent=e.message||'Không thể gửi nội dung.';error.hidden=false;}finally{submit.disabled=false;submit.textContent=activeTab==='wish'?'Gửi lời chúc ♡':'Đăng album kỷ niệm ↗';}});
     $('#comment-form').addEventListener('submit',async e=>{e.preventDefault();const button=$('#comment-form button[type=submit]'),error=$('#comment-error');button.disabled=true;error.hidden=true;try{const author=$('#comment-author').value.trim(),message=$('#comment-message').value.trim();if(!author||!message)throw new Error('Vui lòng nhập tên và bình luận.');await addComment(viewKind,viewId,author,message);$('#comment-message').value='';}catch(x){error.textContent=x.message;error.hidden=false;}finally{button.disabled=false;}});
     $('#post-like').addEventListener('click',()=>likeContent(viewKind,viewId));
     $('#share-link').addEventListener('click',handleShare);
