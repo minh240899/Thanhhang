@@ -27,7 +27,7 @@
   <main class="main">
    <header class="topbar"><button class="mobile-menu" id="nav-open" aria-label="Mở menu">☰</button><span class="crumb">OUR LITTLE WORLD / <strong id="section-label">Tổng quan</strong></span><a class="view-link" href="index.html" target="_blank" rel="noopener">Xem website ↗</a></header>
    <div class="workspace">
-    <div class="notice" id="demo-notice"><strong>Quản trị trực tuyến</strong> · Nội dung được lưu trên Vercel Blob dưới dạng mã hóa. Lời chúc và bình luận tự hiển thị; chỉ chủ trang đã đăng nhập có quyền ẩn, sửa hoặc xóa nội dung. Tệp upload trong bản này giới hạn 3,5 MB.</div>
+    <div class="notice" id="demo-notice"><strong>Quản trị trực tuyến</strong> · Nội dung được lưu trên Vercel Blob dưới dạng mã hóa. Lời chúc và bình luận tự hiển thị; chỉ chủ trang đã đăng nhập có quyền ẩn, sửa hoặc xóa nội dung. Upload ảnh/video qua API Admin giới hạn 3,5 MB; nhạc nền tải trực tiếp tối đa 20 MB.</div>
     <div class="notice danger" id="cloud-notice" hidden>Đang bật Supabase trong <code>config.js</code>. Bản Admin demo này <strong>không được phép</strong> sửa dữ liệu đám mây. Để triển khai thực tế, cần Supabase Auth + RLS phân quyền chủ trang và khu lưu trữ riêng cho tệp chờ duyệt.</div>
     <div id="alert" role="status" class="alert" aria-live="polite" hidden></div>
     <section class="panel active" data-panel="dashboard">
@@ -59,7 +59,19 @@
       <h2>02 / Our Story</h2><label>Tiêu đề câu chuyện<input name="storyTitle" maxlength="180"></label><label>Đoạn văn thứ nhất<textarea name="storyText1" rows="3" maxlength="1600"></textarea></label><label>Đoạn văn thứ hai<textarea name="storyText2" rows="3" maxlength="1600"></textarea></label>
       <h2>03 / Our Journeys</h2><label>Tiêu đề mục hành trình<input name="journeyHeading" maxlength="180"></label><label>Mô tả mục hành trình<textarea name="journeySubtitle" rows="2" maxlength="500"></textarea></label>
       <h2>04 / Lá thư sinh nhật</h2><label>Tiêu đề<input name="letterTitle" maxlength="220"></label><label>Lời chúc<textarea name="letterText" rows="4" maxlength="1800"></textarea></label>
-      <h2>05 / Nhạc nền</h2><label>URL MP3/MP4 hoặc đường dẫn trong <code>assets/</code><input name="musicUrl" placeholder="assets/birthday_theme.mp3"></label><p class="muted note">Đường dẫn này sẽ áp dụng sau khi tải lại trang công khai. File từ máy cần chép vào thư mục <code>assets/</code>; chọn file tại trang chính chỉ là nghe thử, không lưu lên server.</p>
+      <h2>05 / Nhạc nền</h2>
+       <label for="admin-music-file">Chọn bài nhạc từ điện thoại hoặc máy tính (MP3, M4A, OGG, WAV; tối đa 20 MB)
+         <input id="admin-music-file" type="file" accept=".mp3,.m4a,.ogg,.wav,audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/x-wav">
+       </label>
+       <div class="admin-music-tools">
+         <button class="btn light" id="admin-music-upload" type="button">↑ Tải nhạc lên và áp dụng</button>
+         <span id="admin-music-status" role="status" aria-live="polite">Chọn file nhạc để nghe thử rồi lưu cho mọi người.</span>
+       </div>
+       <audio id="admin-music-preview" class="admin-music-preview" controls preload="none" hidden></audio>
+       <label>Hoặc sử dụng URL nhạc trực tiếp / đường dẫn trong <code>assets/</code>
+         <input name="musicUrl" placeholder="assets/birthday_theme.mp3">
+       </label>
+       <p class="muted note">Nhấn “Tải nhạc lên và áp dụng” hoặc “Lưu thay đổi” để tải file lên Vercel Blob. Bản nhạc sẽ được lưu lâu dài và phát cho mọi người khi vào website. Trình duyệt có thể yêu cầu khách tương tác trước khi phát âm thanh.</p>
       <div class="form-actions"><button class="btn primary" type="submit">Lưu thay đổi</button><a class="btn light" target="_blank" rel="noopener" href="index.html">Xem kết quả ↗</a></div>
      </form>
     </section>

@@ -62,8 +62,71 @@
    setupEntry(root,item,{toggle:()=>mutate(()=>{const source=(c._type==='comment'?state.comments:state.wishComments).find(x=>x.id===c.id);if(source)source.approved=!approved(source)}),delete:()=>remove(c._type,c)});
   });
  }
+
+ const musicMime={
+   mp3:['audio/mpeg','audio/mp3'],
+   m4a:['audio/mp4','audio/x-m4a'],
+   ogg:['audio/ogg','application/ogg'],
+   wav:['audio/wav','audio/x-wav','audio/wave']
+ };
+ const MUSIC_LIMIT=20*1024*1024;
+ let musicPreviewObjectUrl=null,blobClientPromise=null;
+ function musicStatus(message){$('#admin-music-status').textContent=message;}
+ function validateMusicFile(file){
+   if(!(file instanceof File)||!file.size)throw new Error('Hãy chọn tệp nhạc hợp lệ.');
+   if(file.size>MUSIC_LIMIT)throw new Error('Tệp nhạc vượt 20 MB. Vui lòng nén bài hát.');
+   const ext=(/\.([a-z0-9]+)$/i.exec(file.name)?.[1]||'').toLowerCase();
+   const types=musicMime[ext];
+   if(!types)throw new Error('Chỉ hỗ trợ MP3, M4A, OGG hoặc WAV.');
+   if(file.type&&!types.includes(file.type.toLowerCase()))throw new Error('Định dạng nhạc không khớp phần mở rộng.');
+   return {ext,mime:file.type||types[0]};
+ }
+ function musicPreview(source){
+   const audio=$('#admin-music-preview');
+   if(!source){audio.pause();audio.removeAttribute('src');audio.load();audio.hidden=true;return;}
+   if(audio.getAttribute('src')!==source){audio.pause();audio.src=source;audio.load();}
+   audio.hidden=false;
+ }
+ function releaseMusicPreview(){
+   if(musicPreviewObjectUrl){URL.revokeObjectURL(musicPreviewObjectUrl);musicPreviewObjectUrl=null;}
+ }
+ function setupMusicFilePicker(){
+   const fileInput=$('#admin-music-file');
+   fileInput.addEventListener('change',()=>{
+     releaseMusicPreview();
+     const file=fileInput.files?.[0];
+     if(!file){musicPreview(settings.musicUrl||'');musicStatus('Chưa chọn bài nhạc mới.');return;}
+     try{
+       validateMusicFile(file);
+       musicPreviewObjectUrl=URL.createObjectURL(file);
+       musicPreview(musicPreviewObjectUrl);
+       musicStatus('Đã chọn '+file.name+' ('+(file.size/1024/1024).toFixed(1)+' MB). Nghe thử hoặc nhấn tải lên.');
+     }catch(e){fileInput.value='';musicPreview(settings.musicUrl||'');musicStatus(e.message);notify(e.message,true);}
+   });
+   $('#admin-music-upload').addEventListener('click',()=>{
+     if(!fileInput.files?.[0]){notify('Vui lòng chọn file nhạc trước khi tải lên.',true);return;}
+     $('#settings-form').requestSubmit();
+   });
+   window.addEventListener('pagehide',releaseMusicPreview,{once:true});
+ }
+ async function uploadMusic(file){
+   const {ext,mime}=validateMusicFile(file);
+   musicStatus('Đang tải thư viện gửi nhạc…');
+   if(!blobClientPromise)blobClientPromise=import('https://esm.sh/@vercel/blob@2.9.0/client?bundle');
+   let upload;
+   try{({upload}=await blobClientPromise);}
+   catch{blobClientPromise=null;throw new Error('Không tải được thư viện upload. Vui lòng kiểm tra Internet.');}
+   musicStatus('Đang tải '+file.name+' lên Vercel Blob, vui lòng không đóng trang…');
+   const typed=file.type===mime?file:new File([file],file.name,{type:mime});
+   const uploaded=await upload('music/'+uid()+'.'+ext,typed,{
+     access:'public',handleUploadUrl:'/api/admin/music-upload',
+     multipart:typed.size>10*1024*1024
+   });
+   if(!uploaded?.url||!/^https:\/\/[^\s"'<>]+$/.test(uploaded.url))throw new Error('Không nhận được liên kết nhạc đã tải.');
+   return uploaded.url;
+ }
  function fillSettings(){const form=$('#settings-form');for(const [k,v] of Object.entries(settings)){const el=form.elements.namedItem(k);if(el)el.value=String(v??'')}}
- function render(){renderDashboard();renderJourneys();renderMemories();renderWishes();renderComments();fillSettings();}
+ function render(){renderDashboard();renderJourneys();renderMemories();renderWishes();renderComments();fillSettings();if(!$('#admin-music-file').files?.length)musicPreview(settings.musicUrl||'');}
  async function mutate(fn){if(!noCloud())return;try{fn();await persist();render();notify('Đã lưu thay đổi. Tải lại trang sinh nhật để xem kết quả.')}catch(e){notify(e.message,true);if(/dữ liệu đã thay đổi|xung đột/i.test(e.message))serverCache=null}}
  function reorder(id,offset){const sorted=sortedTrips(),index=sorted.findIndex(x=>x.id===id),next=index+offset;if(index<0||next<0||next>=sorted.length)return;[sorted[index],sorted[next]]=[sorted[next],sorted[index]];mutate(()=>sorted.forEach((x,i)=>x.sort_order=i));}
  async function remove(type,item){if(!noCloud()||!confirmDelete(item.title||item.author||item.message))return;await mutate(()=>{
@@ -139,7 +202,37 @@
   $('#add-trip').addEventListener('click',()=>openEditor('trip'));$('#add-memory').addEventListener('click',()=>openEditor('post'));$('#add-wish').addEventListener('click',()=>openEditor('wish'));
   $('#editor-form').addEventListener('submit',saveEditor);$('#close-editor').addEventListener('click',()=>$('#editor').close());$('#cancel-editor').addEventListener('click',()=>$('#editor').close());
   ['memory-status','wishes-filter','comments-filter'].forEach(id=>$('#'+id).addEventListener('change',render));
-  $('#settings-form').addEventListener('submit',async ev=>{ev.preventDefault();if(!noCloud())return;const fd=new FormData(ev.currentTarget),s={};for(const key of Object.keys(defaults))s[key]=String(fd.get(key)||'').trim();if(s.musicUrl&&!/^https:\/\/[^\s"'<>]+$|^assets\/[\w./-]+$/.test(s.musicUrl)){notify('Nhạc cần là link HTTPS trực tiếp hoặc đường dẫn assets/',true);return;}try{settings={...settings,...s};await write('site-settings',settings);try{localStorage.removeItem('birthday-music-url-v6');if(s.musicUrl)localStorage.setItem('birthday-admin-music-url',s.musicUrl)}catch{}notify('Đã lưu cấu hình. Hãy mở lại website để xem.')}catch(e){notify(e.message,true)}});
+  setupMusicFilePicker();
+  $('#settings-form').addEventListener('submit',async ev=>{
+    ev.preventDefault();if(!noCloud())return;
+    const form=ev.currentTarget,button=form.querySelector('button[type="submit"]'),uploadButton=$('#admin-music-upload');
+    if(button.disabled)return;
+    const data=new FormData(form),next={...settings};
+    for(const key of Object.keys(defaults))next[key]=String(data.get(key)||'').trim();
+    if(next.musicUrl&&!/^https:\/\/[^\s"'<>]+$|^assets\/[\w./-]+$/.test(next.musicUrl)){
+      notify('Nhạc cần URL HTTPS trực tiếp hoặc đường dẫn assets/.',true);return;
+    }
+    const file=$('#admin-music-file').files?.[0];
+    button.disabled=true;uploadButton.disabled=true;
+    const label=button.textContent;
+    try{
+      if(file){button.textContent='Đang tải nhạc…';next.musicUrl=await uploadMusic(file);musicStatus('Đang lưu nhạc cho tất cả khách truy cập…');}
+      await write('site-settings',next);
+      settings=next;
+      if(file){
+        releaseMusicPreview();$('#admin-music-file').value='';
+        musicPreview(next.musicUrl);
+        musicStatus('Đã tải và lưu nhạc mới. Mọi khách đều sử dụng bài này.');
+      }else{musicPreview(next.musicUrl);musicStatus('Đã lưu cấu hình nhạc.');}
+      try{localStorage.removeItem('birthday-music-url-v6');localStorage.removeItem('birthday-admin-music-url');}catch{}
+      notify('Đã cập nhật nhạc nền. Mở lại website để nghe.');
+      fillSettings();
+    }catch(e){
+      musicStatus('Không thể tải/lưu nhạc: '+(e.message||'Lỗi không xác định.'));
+      notify(e.message||'Lỗi lưu cấu hình.',true);
+      if(/dữ liệu đã thay đổi|xung đột/i.test(e.message||''))serverCache=null;
+    }finally{button.disabled=false;uploadButton.disabled=false;button.textContent=label;}
+  });
   $('#export-data').addEventListener('click',exportJSON);$('#import-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{await importJSON(file)}catch(x){notify('Nhập thất bại: '+x.message,true)}e.target.value='';});
   $('#reset-data').addEventListener('click',async()=>{if(!noCloud()||!window.confirm('Bạn chắc chắn muốn xóa tất cả thay đổi và khôi phục dữ liệu mẫu?'))return;state={...empty(),posts:structuredClone(sample.posts),trips:structuredClone(sample.trips).map((t,i)=>({...t,sort_order:i,published:true})),wishes:structuredClone(sample.wishes)};settings={...defaults};await persist();await write('site-settings',settings);render();notify('Đã khôi phục dữ liệu mẫu.');});
   window.addEventListener('storage',e=>{if(e.key==='birthday-admin-refresh')read('site-state').then(s=>{if(s){state={...empty(),...s};render()}})});
