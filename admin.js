@@ -95,9 +95,11 @@
     if(!get('title'))throw new Error('Cần nhập tên chuyến đi');
     Object.assign(entry,{title:get('title'),description:get('description'),label:get('label')||'CHUYẾN ĐI',date:get('date'),location:get('location'),linked_album_id:get('linked_album_id'),image_url:get('image_url')||'assets/coast.svg',published:f.has('published')});
     const files=f.getAll('image_files').filter(file=>file instanceof File&&file.size);
-    const typedUrls=get('image_urls').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    let typedUrls=get('image_urls').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     const originalCover=entry.image_url;
-    if(new Set([entry.image_url,...typedUrls]).size+files.length>12)throw new Error('Tối đa 12 ảnh trong mỗi chuyến đi.');
+    if(!existing&&files.length&&originalCover==='assets/coast.svg')typedUrls=typedUrls.filter(url=>url!=='assets/coast.svg');
+    const oldCover=(files.length&&originalCover==='assets/coast.svg')?'':originalCover;
+    if(new Set([oldCover,...typedUrls].filter(Boolean)).size+files.length>12)throw new Error('Tối đa 12 ảnh trong mỗi chuyến đi.');
     const uploaded=[];for(const file of files)uploaded.push(await compressImage(file));
     if(files.length&&(!existing||originalCover==='assets/coast.svg'))entry.image_url=uploaded[0];
     const images=[...new Set([entry.image_url,...typedUrls,...uploaded].filter(Boolean))];
