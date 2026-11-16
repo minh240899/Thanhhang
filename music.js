@@ -27,7 +27,7 @@
   function stop(){explicitlyOff=true;audio.pause();label();display('Nhạc đã tạm dừng.');intro.hidden=true;}
   play.addEventListener('click',()=>audio.paused?begin():stop());
   $('music-enter').addEventListener('click',()=>begin());
-  $('music-skip').addEventListener('click',()=>{intro.hidden=true;explicitlyOff=true;display('Bạn có thể bật nhạc bất kỳ lúc nào.');});
+  $('music-skip').addEventListener('click',()=>{stop();display('Bạn có thể bật nhạc bất kỳ lúc nào.');});
   panelButton.addEventListener('click',()=>{panel.hidden=!panel.hidden;panelButton.setAttribute('aria-expanded',String(!panel.hidden));});
   $('music-apply').addEventListener('click',async()=>{if(setSource(musicSrc.value,true)){await begin();panel.hidden=true;panelButton.setAttribute('aria-expanded','false')}});
   fileInput.addEventListener('change',async()=>{
@@ -56,5 +56,15 @@
   if(validUrl(configured))setSource(configured);else display('Chưa cấu hình bài hát.');
   // The welcome prompt is accessible when autoplay with audible sound gets blocked.
   if(cfg.musicAutoplay!==false){begin().then(ok=>{intro.hidden=ok;});}else intro.hidden=true;
+  // Browser autoplay can be denied without a gesture; retry on the first normal interaction.
+  if(cfg.musicAutoplay!==false){
+    const resumeFromGesture=event=>{
+      if(explicitlyOff||!audio.paused||playingVideos.size||document.hidden)return;
+      const target=event.target;
+      if(target instanceof Element&&target.closest('#music-skip, #music-toggle, #music-enter, #music-settings-toggle, #music-apply, #music-panel'))return;
+      begin().then(ok=>{if(ok)['pointerdown','touchend','click','keydown'].forEach(name=>document.removeEventListener(name,resumeFromGesture,true));});
+    };
+    ['pointerdown','touchend','click','keydown'].forEach(name=>document.addEventListener(name,resumeFromGesture,true));
+  }
   window.BIRTHDAY_MUSIC={get source(){return audio.src},begin,stop,setSource};
 })();
